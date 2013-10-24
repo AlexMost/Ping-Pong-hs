@@ -3,8 +3,9 @@ import Data.IORef
 import Graphics.UI.GLUT as GLUT
 import PointsForRendering
 import Circle
+import Rectangle
 
-_LEFT   = -2
+_LEFT   = -1
 _RIGHT  =  1
 _TOP    =  1
 _BOTTOM = -1
@@ -35,6 +36,10 @@ data Game = Game { ball :: Ball
                  , moveFactor :: GLfloat
                  }
 
+displayPaddle (x, y, _) = preservingMatrix$do
+    translate$Vector3 (paddleWidth/2) (paddleHeight/2) 0
+    displayAt (x, y)$myRect paddleWidth paddleHeight
+
 
 initGame = Game {ball=Ball (-0.8, 0.3) _INITIAL_BALL_DIR _INITIAL_BALL_DIR
                 , leftP=(_LEFT+paddleWidth, _BOTTOM, 0)
@@ -49,6 +54,7 @@ main = do
     initialDisplayMode $= [DoubleBuffered]
     createWindow progName
     game <- newIORef initGame
+    --windowSize $= Size _INITIAL_WIDTH _INITIAL_HEIGHT
     displayCallback $= display game
     --idleCallback $= Just (idle game)
     --keyboardMouseCallback $= Just (keyboard game)
@@ -62,5 +68,7 @@ display game = do
     let (Ball pos xDir yDir) = ball g
     -- a ball is a circle
     displayAt pos $ fillCircle ballRadius
+    displayPaddle $ leftP g
+    displayPaddle $ rightP g
     swapBuffers
 
