@@ -54,11 +54,9 @@ main = do
     initialDisplayMode $= [DoubleBuffered]
     createWindow progName
     game <- newIORef initGame
-    --windowSize $= Size _INITIAL_WIDTH _INITIAL_HEIGHT
     displayCallback $= display game
-    --idleCallback $= Just (idle game)
-    --keyboardMouseCallback $= Just (keyboard game)
-    --reshapeCallback $= Just (reshape game)
+    idleCallback $= Just (idle game)
+    keyboardMouseCallback $= Just (keyboard game)
     mainLoop
 
 
@@ -71,4 +69,69 @@ display game = do
     displayPaddle $ leftP g
     displayPaddle $ rightP g
     swapBuffers
+
+idle game = do
+    g <- get game
+    let fac = moveFactor g
+    game $= g{ball   = moveBall g
+             ,leftP  = movePaddle (leftP g) fac
+             ,rightP = movePaddle (rightP g) fac
+             }
+    postRedisplay Nothing
+
+
+moveBall g = Ball (x+factor*newXDir, y+factor*newYDir) newXDir newYDir
+    where
+        newXDir
+            |    x-ballRadius <= x1 + paddleWidth
+              && y+ballRadius >= yl
+              && y            <= yl+paddleHeight
+              = -xDir
+
+            |    x <= _LEFT-ballRadius = 0
+            |    x + ballRadius >= xr
+              && y + ballRadius >= yr
+              && y              <=yr+paddleHeight
+              = -xDir
+            |    x >= _RIGHT+ballRadius = 0
+            | otherwise = xDir
+
+        newYDir
+            | y > _TOP-ballRadius || y < _BOTTOM+ballRadius = -yDir
+            | newXDir == 0 = 0
+            | otherwise = yDir
+
+        (Ball (x,y) xDir yDir) = ball g
+        factor = moveFactor g
+        (x1,yl,_) = leftP g
+        (xr,yr,_) = rightP g
+
+
+movePaddle (x, y, dir) factor =
+    let y1 = y + factor*dir
+        newY = min (_TOP-paddleHeight) $ max _BOTTOM y1
+    in (x, newY, dir)
+
+keyboard game (Char 'a') upDown _ _ = do
+    g <- get game
+    let (x, y, _) = leftP g
+    game $= g{leftP=(x, y, paddleDir upDown)}
+keyboard game (Char 'l') upDown _ _ = do
+    g <- get game
+    let (x,y,_) = rightP g
+    game $= g{rightP=(x,y,paddleDir upDown)}
+keyboard game (Char 'r') Down _ _ = do
+    g <- get game
+    let Ball (x,y) xD yD = ball g
+    let xDir
+            | x <= _LEFT + 3*paddleWidth = _INITIAL_BALL_DIR
+            | x >= _RIGHT-3*paddleWidth = - _INITIAL_BALL_DIR
+            | otherwise = xD
+    if (xD == 0)
+        then game $= g{ball=Ball (x+4*xDir, y) xDir _INITIAL_BALL_DIR}
+        else return()
+keyboard _ _ _ _ _ = return()
+
+paddleDir Down = _INITIAL_PADDLE_DIR
+paddleDir Up   = _INITIAL_PADDLE_DIR
 
